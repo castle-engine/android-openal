@@ -130,6 +130,10 @@ typedef DWORD tls_type;
 #include <time.h>
 #include <errno.h>
 
+#ifdef ANDROID
+#include <android/log.h>
+#endif
+
 #define IsBadWritePtr(a,b) ((a) == NULL && (b) != 0)
 
 typedef pthread_key_t tls_type;
@@ -295,6 +299,9 @@ void alc_wave_probe(int type);
 void alc_pulse_init(BackendFuncs *func_list);
 void alc_pulse_deinit(void);
 void alc_pulse_probe(int type);
+void alc_android_init(BackendFuncs *func_list);
+void alc_android_deinit(void);
+void alc_android_probe(int type);
 void alc_null_init(BackendFuncs *func_list);
 void alc_null_deinit(void);
 void alc_null_probe(int type);
