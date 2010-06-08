@@ -111,6 +111,8 @@ JNIEXPORT void JNICALL Java_net_strangesoft_kcat_OpenAL_run(JNIEnv* env, jclass 
     ALuint source = 0;
     ALuint buffers[BUFFER_COUNT] = { 0 };
 
+    static const ALint context_attribs[] = { ALC_FREQUENCY, 22050, 0 };
+
     MemoryStream* stream = NULL;
     
     OggVorbis_File vf = { 0 };   
@@ -153,7 +155,7 @@ JNIEXPORT void JNICALL Java_net_strangesoft_kcat_OpenAL_run(JNIEnv* env, jclass 
     }
     
     LOG("Creating context");
-    context = alcCreateContext(device, NULL);
+    context = alcCreateContext(device, context_attribs);
     if (!context)
     {
         LOG("Failed to create OpenAL context");
