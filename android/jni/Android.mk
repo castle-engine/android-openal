@@ -32,7 +32,6 @@ LOCAL_SRC_FILES  := ../../OpenAL32/alAuxEffectSlot.c \
                     ../../Alc/android.c              \
                     ../../Alc/bs2b.c                 \
                     ../../Alc/null.c                 \
-                    ../../Alc/wave.c                 \
 
 LOCAL_CFLAGS     := -DAL_BUILD_LIBRARY -DAL_ALEXT_PROTOTYPES
 LOCAL_LDLIBS     := -llog -Wl,-s

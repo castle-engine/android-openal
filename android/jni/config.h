@@ -17,10 +17,13 @@
 /* #cmakedefine HAVE_SOLARIS */
 
 /* Define if we have the DSound backend */
-/* #cmakedefine HAVE_DSOUND 1 */
+/* #cmakedefine HAVE_DSOUND */
+
+/* Define if we have the Wave Writer backend */
+/* #cmakedefine HAVE_WAVE */
 
 /* Define if we have the Windows Multimedia backend */
-/* #cmakedefine HAVE_WINMM 1 */
+/* #cmakedefine HAVE_WINMM */
 
 /* Define if we have the PortAudio backend */
 /* #cmakedefine HAVE_PORTAUDIO */
