@@ -74,7 +74,9 @@ static BackendInfo BackendList[] = {
 #endif
 
     { "null", alc_null_init, alc_null_deinit, alc_null_probe, EmptyFuncs },
+#ifdef HAVE_WAVE
     { "wave", alc_wave_init, alc_wave_deinit, alc_wave_probe, EmptyFuncs },
+#endif
 
     { NULL, NULL, NULL, NULL, EmptyFuncs }
 };
@@ -411,12 +413,6 @@ static void alc_init(void)
     int i;
     const char *devs, *str;
 
-    InitializeCriticalSection(&g_csMutex);
-    ALTHUNK_INIT();
-    ReadALConfig();
-
-    tls_create(&LocalContext);
-
     str = getenv("ALSOFT_LOGFILE");
     if(str && str[0])
     {
@@ -426,6 +422,12 @@ static void alc_init(void)
     }
     if(!LogFile)
         LogFile = stderr;
+
+    InitializeCriticalSection(&g_csMutex);
+    ALTHUNK_INIT();
+    ReadALConfig();
+
+    tls_create(&LocalContext);
 
     RTPrioLevel = GetConfigValueInt(NULL, "rt-prio", 0);
 
