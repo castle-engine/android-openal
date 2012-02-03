@@ -2,7 +2,7 @@
 #define CONFIG_H
 
 /* Define to the library version */
-#define ALSOFT_VERSION "1.12.854"
+#define ALSOFT_VERSION "1.13"
 
 /* Define if we have the Android backend */
 #define HAVE_ANDROID 1
@@ -16,11 +16,14 @@
 /* Define if we have the Solaris backend */
 /* #cmakedefine HAVE_SOLARIS */
 
+/* Define if we have the SndIO backend */
+/* #cmakedefine HAVE_SNDIO */
+
+/* Define if we have the MMDevApi backend */
+/* #cmakedefine HAVE_MMDEVAPI */
+
 /* Define if we have the DSound backend */
 /* #cmakedefine HAVE_DSOUND */
-
-/* Define if we have the Wave Writer backend */
-/* #cmakedefine HAVE_WAVE */
 
 /* Define if we have the Windows Multimedia backend */
 /* #cmakedefine HAVE_WINMM */
@@ -30,6 +33,15 @@
 
 /* Define if we have the PulseAudio backend */
 /* #cmakedefine HAVE_PULSEAUDIO */
+
+/* Define if we have the CoreAudio backend */
+/* #cmakedefine HAVE_COREAUDIO */
+
+/* Define if we have the OpenSL backend */
+/* #cmakedefine HAVE_OPENSL */  /* THIS BACKEND WORKS ON >=2.3 Android!! */
+
+/* Define if we have the Wave Writer backend */
+/* #cmakedefine HAVE_WAVE */
 
 /* Define if we have dlfcn.h */
 #define HAVE_DLFCN_H 1
@@ -43,14 +55,32 @@
 /* Define if we have the sqrtf function */
 #define HAVE_SQRTF 1
 
+/* Define if we have the cosf function */
+#define HAVE_COSF 1
+
+/* Define if we have the sinf function */
+#define HAVE_SINF 1
+
 /* Define if we have the acosf function */
 #define HAVE_ACOSF 1
+
+/* Define if we have the asinf function */
+#define  HAVE_ASINF 1
 
 /* Define if we have the atanf function */
 #define HAVE_ATANF 1
 
+/* Define if we have the atan2f function */
+#define HAVE_ATAN2F 1
+
 /* Define if we have the fabsf function */
 #define HAVE_FABSF 1
+
+/* Define if we have the log10f function */
+#define HAVE_LOG10F 1
+
+/* Define if we have the floorf function */
+#define HAVE_FLOORF 1
 
 /* Define if we have the strtof function */
 #define HAVE_STRTOF 1
@@ -67,12 +97,6 @@
 /* Define to the size of a long long int type */
 #define SIZEOF_LONG_LONG 8
 
-/* Define to the size of an unsigned int type */
-#define SIZEOF_UINT 4
-
-/* Define to the size of a void pointer type */
-#define SIZEOF_VOIDP 4
-
 /* Define if we have GCC's destructor attribute */
 #define HAVE_GCC_DESTRUCTOR 1
 
@@ -82,8 +106,23 @@
 /* Define if we have pthread_np.h */
 /* #cmakedefine HAVE_PTHREAD_NP_H */
 
+/* Define if we have arm_neon.h */
+/* #cmakedefine HAVE_ARM_NEON_H */
+
+/* Define if we have guiddef.h */
+/* #cmakedefine HAVE_GUIDDEF_H */
+
+/* Define if we have guiddef.h */
+/* #cmakedefine HAVE_INITGUID_H */
+
+/* Define if we have ieeefp.h */
+/* #cmakedefine HAVE_IEEEFP_H */
+
 /* Define if we have float.h */
 /* #cmakedefine HAVE_FLOAT_H */
+
+/* Define if we have fpu_control.h */
+/* #cmakedefine HAVE_FPU_CONTROL_H */
 
 /* Define if we have fenv.h */
 #define HAVE_FENV_H 1
@@ -96,5 +135,11 @@
 
 /* Define if we have pthread_setschedparam() */
 #define HAVE_PTHREAD_SETSCHEDPARAM 1
+
+/* Define if we have the restrict keyword */
+/* #cmakedefine  HAVE_RESTRICT 1 */
+
+/* Define if we have the __restrict keyword */
+#define HAVE___RESTRICT 1
 
 #endif
