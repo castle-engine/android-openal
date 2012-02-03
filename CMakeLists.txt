@@ -10,13 +10,14 @@ SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 INCLUDE(CheckFunctionExists)
 INCLUDE(CheckLibraryExists)
-INCLUDE(CheckSharedLibraryExists)
+INCLUDE(CheckSharedFunctionExists)
 INCLUDE(CheckIncludeFile)
 INCLUDE(CheckIncludeFiles)
 INCLUDE(CheckSymbolExists)
 INCLUDE(CheckCCompilerFlag)
 INCLUDE(CheckCSourceCompiles)
 INCLUDE(CheckTypeSize)
+INCLUDE(FindPkgConfig)
 
 
 PROJECT(OpenAL C)
@@ -28,38 +29,65 @@ SET(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS TRUE)
 OPTION(ALSA    "Check for ALSA backend"                ON)
 OPTION(OSS     "Check for OSS backend"                 ON)
 OPTION(SOLARIS "Check for Solaris backend"             ON)
+OPTION(SNDIO   "Check for SndIO backend"               ON)
+OPTION(MMDEVAPI "Check for MMDevApi"                   ON)
 OPTION(DSOUND  "Check for DirectSound backend"         ON)
 OPTION(WINMM   "Check for Windows Multimedia backend"  ON)
 OPTION(PORTAUDIO  "Check for PortAudio backend"        ON)
 OPTION(PULSEAUDIO "Check for PulseAudio backend"       ON)
+OPTION(COREAUDIO  "Check for CoreAudio backend"        ON)
+OPTION(OPENSL     "Check for OpenSL backend"           ON)
 OPTION(WAVE    "Enable Wave Writer backend"            ON)
+
+OPTION(REQUIRE_ALSA       "Require ALSA backend"               OFF)
+OPTION(REQUIRE_OSS        "Require OSS backend"                OFF)
+OPTION(REQUIRE_SOLARIS    "Require Solaris backend"            OFF)
+OPTION(REQUIRE_SNDIO      "Require SndIO backend"              OFF)
+OPTION(REQUIRE_MMDEVAPI   "Require MMDevApi"                   OFF)
+OPTION(REQUIRE_DSOUND     "Require DirectSound backend"        OFF)
+OPTION(REQUIRE_WINMM      "Require Windows Multimedia backend" OFF)
+OPTION(REQUIRE_PORTAUDIO  "Require PortAudio backend"          OFF)
+OPTION(REQUIRE_PULSEAUDIO "Require PulseAudio backend"         OFF)
+OPTION(REQUIRE_COREAUDIO  "Require CoreAudio backend"          OFF)
+OPTION(REQUIRE_OPENSL     "Require OpenSL backend"             OFF)
 
 OPTION(DLOPEN  "Check for the dlopen API for loading optional libs"  ON)
 
 OPTION(WERROR  "Treat compile warnings as errors"      OFF)
 
-OPTION(EXAMPLES  "Build example programs"              ON)
+OPTION(UTILS  "Build and install utility programs"  ON)
+
+OPTION(EXAMPLES  "Build and install example programs"  ON)
 
 OPTION(ALSOFT_CONFIG "Install alsoft.conf configuration file" OFF)
 
 
 IF(WIN32)
     SET(LIBNAME OpenAL32)
-    ADD_DEFINITIONS("-D_WIN32")
+    ADD_DEFINITIONS("-D_WIN32 -D_WIN32_WINNT=0x0500")
 ELSE()
     SET(LIBNAME openal)
 ENDIF()
 
+IF(NOT LIBTYPE)
+    SET(LIBTYPE SHARED)
+ENDIF()
+
 SET(LIB_MAJOR_VERSION "1")
-SET(LIB_MINOR_VERSION "12")
-SET(LIB_BUILD_VERSION "854")
-SET(LIB_VERSION "${LIB_MAJOR_VERSION}.${LIB_MINOR_VERSION}.${LIB_BUILD_VERSION}")
+SET(LIB_MINOR_VERSION "13")
+SET(LIB_VERSION "${LIB_MAJOR_VERSION}.${LIB_MINOR_VERSION}")
+
+SET(EXPORT_DECL "")
 
 
 CHECK_TYPE_SIZE("long" SIZEOF_LONG)
 CHECK_TYPE_SIZE("long long" SIZEOF_LONG_LONG)
-CHECK_TYPE_SIZE("unsigned int" SIZEOF_UINT)
-CHECK_TYPE_SIZE("void*" SIZEOF_VOIDP)
+
+
+CHECK_C_SOURCE_COMPILES("int *restrict foo;
+                         int main() {return 0;}" HAVE_RESTRICT)
+CHECK_C_SOURCE_COMPILES("int *__restrict foo;
+                         int main() {return 0;}" HAVE___RESTRICT)
 
 
 # Add definitions, compiler switches, etc.
@@ -97,8 +125,18 @@ IF(MSVC)
         LINK_DIRECTORIES("${DXSDK_DIR}/Lib")
     ENDIF()
 
+    OPTION(FORCE_STATIC_VCRT "Force /MT for static VC runtimes" OFF)
+    IF(FORCE_STATIC_VCRT)
+        FOREACH(flag_var
+                CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
+                CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO)
+            IF(${flag_var} MATCHES "/MD")
+                STRING(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
+            ENDIF()
+        ENDFOREACH(flag_var)
+    ENDIF()
 ELSE()
-    ADD_DEFINITIONS(-Wall)
+    ADD_DEFINITIONS(-Winline -Wall)
     CHECK_C_COMPILER_FLAG(-Wextra HAVE_W_EXTRA)
     IF(HAVE_W_EXTRA)
         ADD_DEFINITIONS(-Wextra)
@@ -108,52 +146,111 @@ ELSE()
         ADD_DEFINITIONS(-Werror)
     ENDIF()
 
-    SET(CMAKE_C_FLAGS_RELWITHDEBINFO "-g -O2 -funroll-loops -D_DEBUG" CACHE STRING
+    SET(CMAKE_C_FLAGS_RELWITHDEBINFO "-g -O2 -D_DEBUG" CACHE STRING
         "Flags used by the compiler during Release with Debug Info builds."
         FORCE)
     SET(CMAKE_C_FLAGS_MINSIZEREL "-Os -DNDEBUG" CACHE STRING
         "Flags used by the compiler during release minsize builds."
         FORCE)
-    SET(CMAKE_C_FLAGS_RELEASE "-O2 -funroll-loops -fomit-frame-pointer -DNDEBUG" CACHE STRING
+    SET(CMAKE_C_FLAGS_RELEASE "-O2 -fomit-frame-pointer -DNDEBUG" CACHE STRING
         "Flags used by the compiler during release builds"
         FORCE)
     SET(CMAKE_C_FLAGS_DEBUG "-g3 -D_DEBUG" CACHE STRING
         "Flags used by the compiler during debug builds."
         FORCE)
 
-    # Set visibility options if available
-    IF(NOT WIN32)
-        CHECK_C_SOURCE_COMPILES("int foo() __attribute__((destructor));
-                                 int main() {return 0;}" HAVE_GCC_DESTRUCTOR)
+    CHECK_C_SOURCE_COMPILES("int foo() __attribute__((destructor));
+                             int main() {return 0;}" HAVE_GCC_DESTRUCTOR)
+ENDIF()
 
-        CHECK_C_COMPILER_FLAG(-fvisibility=hidden HAVE_VISIBILITY_SWITCH)
-        IF(HAVE_VISIBILITY_SWITCH)
-            CHECK_C_SOURCE_COMPILES("int foo() __attribute__((visibility(\"default\")));
-                                     int main() {return 0;}" HAVE_GCC_VISIBILITY)
-            IF(HAVE_GCC_VISIBILITY)
-                ADD_DEFINITIONS(-fvisibility=hidden -DHAVE_GCC_VISIBILITY)
+# Set visibility/export options if available
+IF(WIN32)
+    SET(EXPORT_DECL "__declspec(dllexport)")
+
+    OPTION(WINE "Enable use of Wine headers when compiling" OFF)
+    IF(WINE)
+        FIND_PATH(WINE_INCLUDE_DIR library.h
+                  PATHS
+                  /usr/include/wine
+                  /usr/local/include/wine
+                  CMAKE_FIND_ROOT_PATH_BOTH)
+        IF(WINE_INCLUDE_DIR)
+            MESSAGE(STATUS "Found Wine header files - ${WINE_INCLUDE_DIR}" )
+            INCLUDE_DIRECTORIES("${WINE_INCLUDE_DIR}/windows")
+            SET(CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES} "${WINE_INCLUDE_DIR}/windows")
+        ELSE()
+            MESSAGE(STATUS "Could not find Wine header files" )
+        ENDIF()
+    ENDIF()
+ELSE()
+    SET(OLD_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS}")
+    # Yes GCC, really don't accept visibility modes you don't support
+    SET(CMAKE_REQUIRED_FLAGS "${OLD_REQUIRED_FLAGS} -Wattributes -Werror")
+
+    CHECK_C_SOURCE_COMPILES("int foo() __attribute__((visibility(\"protected\")));
+                             int main() {return 0;}" HAVE_GCC_PROTECTED_VISIBILITY)
+    IF(HAVE_GCC_PROTECTED_VISIBILITY)
+        SET(EXPORT_DECL "__attribute__((visibility(\"protected\")))")
+    ELSE()
+        CHECK_C_SOURCE_COMPILES("int foo() __attribute__((visibility(\"default\")));
+                                 int main() {return 0;}" HAVE_GCC_DEFAULT_VISIBILITY)
+        IF(HAVE_GCC_DEFAULT_VISIBILITY)
+            SET(EXPORT_DECL "__attribute__((visibility(\"default\")))")
+        ENDIF()
+    ENDIF()
+
+    IF(HAVE_GCC_PROTECTED_VISIBILITY OR HAVE_GCC_DEFAULT_VISIBILITY)
+        CHECK_C_COMPILER_FLAG(-fvisibility=internal HAVE_VISIBILITY_INTERNAL_SWITCH)
+        IF(HAVE_VISIBILITY_INTERNAL_SWITCH)
+            ADD_DEFINITIONS(-fvisibility=internal)
+        ELSE()
+            CHECK_C_COMPILER_FLAG(-fvisibility=hidden HAVE_VISIBILITY_HIDDEN_SWITCH)
+            IF(HAVE_VISIBILITY_HIDDEN_SWITCH)
+                ADD_DEFINITIONS(-fvisibility=hidden)
             ENDIF()
         ENDIF()
     ENDIF()
+
+    SET(CMAKE_REQUIRED_FLAGS "${OLD_REQUIRED_FLAGS}")
 ENDIF()
 
 CHECK_C_SOURCE_COMPILES("int foo(const char *str, ...) __attribute__((format(printf, 1, 2)));
                          int main() {return 0;}" HAVE_GCC_FORMAT)
 
 CHECK_INCLUDE_FILE(fenv.h HAVE_FENV_H)
+CHECK_INCLUDE_FILE(fpu_control.h HAVE_FPU_CONTROL_H)
 CHECK_INCLUDE_FILE(float.h HAVE_FLOAT_H)
+CHECK_INCLUDE_FILE(ieeefp.h HAVE_IEEEFP_H)
+CHECK_INCLUDE_FILE(guiddef.h HAVE_GUIDDEF_H)
+IF(NOT HAVE_GUIDDEF_H)
+    CHECK_INCLUDE_FILE(initguid.h HAVE_INITGUID_H)
+ENDIF()
+CHECK_INCLUDE_FILE(arm_neon.h HAVE_ARM_NEON_H)
 
-CHECK_LIBRARY_EXISTS(m  powf   "" HAVE_POWF)
-CHECK_LIBRARY_EXISTS(m  sqrtf  "" HAVE_SQRTF)
-CHECK_LIBRARY_EXISTS(m  acosf  "" HAVE_ACOSF)
-CHECK_LIBRARY_EXISTS(m  atanf  "" HAVE_ATANF)
-CHECK_LIBRARY_EXISTS(m  fabsf  "" HAVE_FABSF)
-IF(HAVE_FENV_H)
-    CHECK_LIBRARY_EXISTS(m  fesetround  "" HAVE_FESETROUND)
-ENDIF()
-IF(HAVE_SQRTF OR HAVE_ACOSF OR HAVE_ATANF OR HAVE_FABSF OR HAVE_FESETROUND)
+# Some systems need libm for some of the following math functions to work
+CHECK_LIBRARY_EXISTS(m pow "" HAVE_LIBM)
+IF(HAVE_LIBM)
     SET(EXTRA_LIBS m ${EXTRA_LIBS})
+    SET(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} m)
 ENDIF()
+
+
+CHECK_SYMBOL_EXISTS(powf   math.h HAVE_POWF)
+CHECK_SYMBOL_EXISTS(sqrtf  math.h HAVE_SQRTF)
+CHECK_SYMBOL_EXISTS(cosf   math.h HAVE_COSF)
+CHECK_SYMBOL_EXISTS(sinf   math.h HAVE_SINF)
+CHECK_SYMBOL_EXISTS(acosf  math.h HAVE_ACOSF)
+CHECK_SYMBOL_EXISTS(asinf  math.h HAVE_ASINF)
+CHECK_SYMBOL_EXISTS(atanf  math.h HAVE_ATANF)
+CHECK_SYMBOL_EXISTS(atan2f math.h HAVE_ATAN2F)
+CHECK_SYMBOL_EXISTS(fabsf  math.h HAVE_FABSF)
+CHECK_SYMBOL_EXISTS(log10f math.h HAVE_LOG10F)
+CHECK_SYMBOL_EXISTS(floorf math.h HAVE_FLOORF)
+
+IF(HAVE_FENV_H)
+    CHECK_SYMBOL_EXISTS(fesetround fenv.h HAVE_FESETROUND)
+ENDIF()
+
 CHECK_FUNCTION_EXISTS(strtof HAVE_STRTOF)
 CHECK_FUNCTION_EXISTS(_controlfp HAVE__CONTROLFP)
 
@@ -196,6 +293,20 @@ IF(NOT HAVE_VSNPRINTF)
     ENDIF()
 
     ADD_DEFINITIONS(-Dvsnprintf=_vsnprintf)
+ENDIF()
+
+CHECK_SYMBOL_EXISTS(isfinite math.h HAVE_ISFINITE)
+IF(NOT HAVE_ISFINITE)
+    CHECK_FUNCTION_EXISTS(finite HAVE_FINITE)
+    IF(NOT HAVE_FINITE)
+        CHECK_FUNCTION_EXISTS(_finite HAVE__FINITE)
+        IF(NOT HAVE__FINITE)
+            MESSAGE(FATAL_ERROR "No isfinite function found, please report!")
+        ENDIF()
+        ADD_DEFINITIONS(-Disfinite=_finite)
+    ELSE()
+        ADD_DEFINITIONS(-Disfinite=finite)
+    ENDIF()
 ENDIF()
 
 CHECK_SYMBOL_EXISTS(isnan math.h HAVE_ISNAN)
@@ -281,18 +392,16 @@ IF(NOT HAVE_STDINT_H)
     ENDIF()
 ENDIF()
 
-IF(WIN32)
-    # Windows needs winmm for timeGetTime, even if the backend is disabled
-    CHECK_SHARED_LIBRARY_EXISTS(winmm timeGetTime 0 "" HAVE_LIBWINMM)
-    IF(HAVE_LIBWINMM)
-        SET(EXTRA_LIBS winmm ${EXTRA_LIBS})
-    ENDIF()
+# Windows needs winmm for timeGetTime, even if the backend is disabled
+CHECK_SHARED_FUNCTION_EXISTS(timeGetTime "windows.h;mmsystem.h" winmm "" HAVE_LIBWINMM)
+IF(HAVE_LIBWINMM)
+    SET(EXTRA_LIBS winmm ${EXTRA_LIBS})
+    SET(PKG_CONFIG_LIBS ${PKG_CONFIG_LIBS} -lwinmm)
 ENDIF()
 
 
 SET(OPENAL_OBJS  OpenAL32/alAuxEffectSlot.c
                  OpenAL32/alBuffer.c
-                 OpenAL32/alDatabuffer.c
                  OpenAL32/alEffect.c
                  OpenAL32/alError.c
                  OpenAL32/alExtension.c
@@ -305,25 +414,43 @@ SET(OPENAL_OBJS  OpenAL32/alAuxEffectSlot.c
 SET(ALC_OBJS  Alc/ALc.c
               Alc/ALu.c
               Alc/alcConfig.c
+              Alc/alcDedicated.c
               Alc/alcEcho.c
               Alc/alcModulator.c
               Alc/alcReverb.c
               Alc/alcRing.c
               Alc/alcThread.c
               Alc/bs2b.c
-              Alc/null.c
+              Alc/helpers.c
+              Alc/hrtf.c
+              Alc/mixer.c
+              Alc/panning.c
+              # Default backends, always available
+              Alc/backends/loopback.c
+              Alc/backends/null.c
 )
 
 SET(BACKENDS "")
+SET(HAVE_ALSA       0)
+SET(HAVE_OSS        0)
+SET(HAVE_SOLARIS    0)
+SET(HAVE_SNDIO      0)
+SET(HAVE_DSOUND     0)
+SET(HAVE_WINMM      0)
+SET(HAVE_PORTAUDIO  0)
+SET(HAVE_PULSEAUDIO 0)
+SET(HAVE_COREAUDIO  0)
+SET(HAVE_OPENSL     0)
+SET(HAVE_WAVE       0)
 
 # Check ALSA backend
 IF(ALSA)
     CHECK_INCLUDE_FILE(alsa/asoundlib.h HAVE_ALSA_ASOUNDLIB_H)
     IF(HAVE_ALSA_ASOUNDLIB_H)
-        CHECK_SHARED_LIBRARY_EXISTS(asound snd_pcm_open 4 "" HAVE_LIBASOUND)
+        CHECK_SHARED_FUNCTION_EXISTS(snd_pcm_open "alsa/asoundlib.h" asound "" HAVE_LIBASOUND)
         IF(HAVE_LIBASOUND OR HAVE_DLFCN_H OR WIN32)
             SET(HAVE_ALSA 1)
-            SET(ALC_OBJS  ${ALC_OBJS} Alc/alsa.c)
+            SET(ALC_OBJS  ${ALC_OBJS} Alc/backends/alsa.c)
             IF(HAVE_DLFCN_H OR WIN32)
                 SET(BACKENDS  "${BACKENDS} ALSA,")
             ELSE()
@@ -333,15 +460,21 @@ IF(ALSA)
         ENDIF()
     ENDIF()
 ENDIF()
+IF(REQUIRE_ALSA AND NOT HAVE_ALSA)
+    MESSAGE(FATAL_ERROR "Failed to enabled required ALSA backend")
+ENDIF()
 
 # Check OSS backend
 IF(OSS)
     CHECK_INCLUDE_FILE(sys/soundcard.h HAVE_SYS_SOUNDCARD_H)
     IF(HAVE_SYS_SOUNDCARD_H)
         SET(HAVE_OSS 1)
-        SET(ALC_OBJS  ${ALC_OBJS} Alc/oss.c)
+        SET(ALC_OBJS  ${ALC_OBJS} Alc/backends/oss.c)
         SET(BACKENDS  "${BACKENDS} OSS,")
     ENDIF()
+ENDIF()
+IF(REQUIRE_OSS AND NOT HAVE_OSS)
+    MESSAGE(FATAL_ERROR "Failed to enabled required OSS backend")
 ENDIF()
 
 # Check Solaris backend
@@ -349,19 +482,59 @@ IF(SOLARIS)
     CHECK_INCLUDE_FILE(sys/audioio.h HAVE_SYS_AUDIOIO_H)
     IF(HAVE_SYS_AUDIOIO_H)
         SET(HAVE_SOLARIS 1)
-        SET(ALC_OBJS  ${ALC_OBJS} Alc/solaris.c)
+        SET(ALC_OBJS  ${ALC_OBJS} Alc/backends/solaris.c)
         SET(BACKENDS  "${BACKENDS} Solaris,")
     ENDIF()
+ENDIF()
+IF(REQUIRE_SOLARIS AND NOT HAVE_SOLARIS)
+    MESSAGE(FATAL_ERROR "Failed to enabled required Solaris backend")
+ENDIF()
+
+# Check SndIO backend
+IF(SNDIO)
+    CHECK_INCLUDE_FILE(sndio.h HAVE_SNDIO_H)
+    IF(HAVE_SNDIO_H)
+        CHECK_SHARED_FUNCTION_EXISTS(sio_open "sndio.h" sndio "" HAVE_LIBSNDIO)
+        IF(HAVE_LIBSNDIO OR HAVE_DLFCN_H OR WIN32)
+            SET(HAVE_SNDIO 1)
+            SET(ALC_OBJS  ${ALC_OBJS} Alc/backends/sndio.c)
+            IF(HAVE_DLFCN_H OR WIN32)
+                SET(BACKENDS  "${BACKENDS} SndIO,")
+            ELSE()
+                SET(BACKENDS  "${BACKENDS} SndIO \(linked\),")
+                SET(EXTRA_LIBS sndio ${EXTRA_LIBS})
+            ENDIF()
+        ENDIF()
+    ENDIF()
+ENDIF()
+IF(REQUIRE_SNDIO AND NOT HAVE_SNDIO)
+    MESSAGE(FATAL_ERROR "Failed to enabled required SndIO backend")
+ENDIF()
+
+# Check for MMDevApi backend
+IF(HAVE_WINDOWS_H)
+    IF(MMDEVAPI)
+        CHECK_INCLUDE_FILE(mmdeviceapi.h HAVE_MMDEVICEAPI_H)
+        IF(HAVE_MMDEVICEAPI_H)
+            SET(HAVE_MMDEVAPI 1)
+            SET(ALC_OBJS  ${ALC_OBJS} Alc/backends/mmdevapi.c)
+
+            SET(BACKENDS  "${BACKENDS} MMDevApi,")
+        ENDIF()
+    ENDIF()
+ENDIF()
+IF(REQUIRE_MMDEVAPI AND NOT HAVE_MMDEVAPI)
+    MESSAGE(FATAL_ERROR "Failed to enabled required MMDevApi backend")
 ENDIF()
 
 # Check DSound/MMSystem backend
 IF(DSOUND)
     CHECK_INCLUDE_FILE(dsound.h HAVE_DSOUND_H)
     IF(HAVE_DSOUND_H)
-        CHECK_SHARED_LIBRARY_EXISTS(dsound DirectSoundCreate 3 "" HAVE_LIBDSOUND)
+        CHECK_SHARED_FUNCTION_EXISTS(DirectSoundCreate "dsound.h" dsound "" HAVE_LIBDSOUND)
         IF(HAVE_LIBDSOUND OR HAVE_DLFCN_H OR WIN32)
             SET(HAVE_DSOUND 1)
-            SET(ALC_OBJS  ${ALC_OBJS} Alc/dsound.c)
+            SET(ALC_OBJS  ${ALC_OBJS} Alc/backends/dsound.c)
 
             IF(HAVE_DLFCN_H OR WIN32)
                 SET(BACKENDS  "${BACKENDS} DirectSound,")
@@ -372,30 +545,32 @@ IF(DSOUND)
         ENDIF()
     ENDIF()
 ENDIF()
+IF(REQUIRE_DSOUND AND NOT HAVE_DSOUND)
+    MESSAGE(FATAL_ERROR "Failed to enabled required DSound backend")
+ENDIF()
+
 IF(HAVE_WINDOWS_H)
     IF(WINMM)
         CHECK_INCLUDE_FILES("windows.h;mmsystem.h" HAVE_MMSYSTEM_H -D_WIN32_WINNT=0x0500)
-        IF(HAVE_MMSYSTEM_H)
-            CHECK_SHARED_LIBRARY_EXISTS(winmm waveInOpen 6 "" HAVE_LIBWINMM)
-            IF(HAVE_LIBWINMM)
-                SET(HAVE_WINMM 1)
-                SET(ALC_OBJS  ${ALC_OBJS} Alc/winmm.c)
-                SET(BACKENDS  "${BACKENDS} WinMM,")
-
-                SET(EXTRA_LIBS winmm ${EXTRA_LIBS})
-            ENDIF()
+        IF(HAVE_MMSYSTEM_H AND HAVE_LIBWINMM)
+            SET(HAVE_WINMM 1)
+            SET(ALC_OBJS  ${ALC_OBJS} Alc/backends/winmm.c)
+            SET(BACKENDS  "${BACKENDS} WinMM,")
         ENDIF()
     ENDIF()
+ENDIF()
+IF(REQUIRE_WINMM AND NOT HAVE_WINMM)
+    MESSAGE(FATAL_ERROR "Failed to enabled required WinMM backend")
 ENDIF()
 
 # Check PortAudio backend
 IF(PORTAUDIO)
     CHECK_INCLUDE_FILE(portaudio.h HAVE_PORTAUDIO_H)
     IF(HAVE_PORTAUDIO_H)
-        CHECK_SHARED_LIBRARY_EXISTS(portaudio Pa_Initialize 0 "" HAVE_LIBPORTAUDIO)
+        CHECK_SHARED_FUNCTION_EXISTS(Pa_Initialize "portaudio.h" portaudio "" HAVE_LIBPORTAUDIO)
         IF(HAVE_LIBPORTAUDIO OR HAVE_DLFCN_H OR WIN32)
             SET(HAVE_PORTAUDIO 1)
-            SET(ALC_OBJS  ${ALC_OBJS} Alc/portaudio.c)
+            SET(ALC_OBJS  ${ALC_OBJS} Alc/backends/portaudio.c)
             IF(HAVE_DLFCN_H OR WIN32)
                 SET(BACKENDS  "${BACKENDS} PortAudio,")
             ELSE()
@@ -405,15 +580,18 @@ IF(PORTAUDIO)
         ENDIF()
     ENDIF()
 ENDIF()
+IF(REQUIRE_PORTAUDIO AND NOT HAVE_PORTAUDIO)
+    MESSAGE(FATAL_ERROR "Failed to enabled required PortAudio backend")
+ENDIF()
 
-# Check PortAudio backend
+# Check PulseAudio backend
 IF(PULSEAUDIO)
     CHECK_INCLUDE_FILE(pulse/pulseaudio.h HAVE_PULSE_PULSEAUDIO_H)
     IF(HAVE_PULSE_PULSEAUDIO_H)
-        CHECK_SHARED_LIBRARY_EXISTS(pulse pa_context_new 2 "" HAVE_LIBPULSE)
+        CHECK_SHARED_FUNCTION_EXISTS(pa_context_new "pulse/pulseaudio.h" pulse "" HAVE_LIBPULSE)
         IF(HAVE_LIBPULSE OR HAVE_DLFCN_H OR WIN32)
             SET(HAVE_PULSEAUDIO 1)
-            SET(ALC_OBJS  ${ALC_OBJS} Alc/pulseaudio.c)
+            SET(ALC_OBJS  ${ALC_OBJS} Alc/backends/pulseaudio.c)
             IF(HAVE_DLFCN_H OR WIN32)
                 SET(BACKENDS  "${BACKENDS} PulseAudio,")
             ELSE()
@@ -423,16 +601,73 @@ IF(PULSEAUDIO)
         ENDIF()
     ENDIF()
 ENDIF()
+IF(REQUIRE_PULSEAUDIO AND NOT HAVE_PULSEAUDIO)
+    MESSAGE(FATAL_ERROR "Failed to enabled required PulseAudio backend")
+ENDIF()
+
+# Check CoreAudio backend
+IF(COREAUDIO)
+    CHECK_INCLUDE_FILE(/System/Library/Frameworks/CoreAudio.framework/Headers/CoreAudio.h HAVE_COREAUDIO_FRAMEWORK)
+    IF(HAVE_COREAUDIO_FRAMEWORK)
+        SET(HAVE_COREAUDIO 1)
+        SET(ALC_OBJS  ${ALC_OBJS} Alc/backends/coreaudio.c)
+        SET(BACKENDS  "${BACKENDS} CoreAudio,")
+        SET(EXTRA_LIBS /System/Library/Frameworks/CoreAudio.framework ${EXTRA_LIBS})
+        SET(EXTRA_LIBS /System/Library/Frameworks/AudioUnit.framework ${EXTRA_LIBS})
+        SET(EXTRA_LIBS /System/Library/Frameworks/ApplicationServices.framework ${EXTRA_LIBS})
+
+        # Some versions of OSX may need the AudioToolbox framework. Add it if
+        # it's found.
+        FIND_LIBRARY(AUDIOTOOLBOX_LIBRARY
+                     NAMES AudioToolbox
+                     PATHS ~/Library/Frameworks
+                           /Library/Frameworks
+                           /System/Library/Frameworks
+                    )
+        IF(AUDIOTOOLBOX_LIBRARY)
+            SET(EXTRA_LIBS ${AUDIOTOOLBOX_LIBRARY} ${EXTRA_LIBS})
+        ENDIF()
+    ENDIF()
+ENDIF()
+IF(REQUIRE_COREAUDIO AND NOT HAVE_COREAUDIO)
+    MESSAGE(FATAL_ERROR "Failed to enabled required CoreAudio backend")
+ENDIF()
+
+# Check for OpenSL (Android) backend
+IF(OPENSL)
+    CHECK_INCLUDE_FILES("SLES/OpenSLES.h;SLES/OpenSLES_Android.h" HAVE_SLES_OPENSLES_ANDROID_H)
+    IF(HAVE_SLES_OPENSLES_ANDROID_H)
+        CHECK_SHARED_FUNCTION_EXISTS(slCreateEngine "SLES/OpenSLES.h" OpenSLES "" HAVE_LIBOPENSLES)
+        IF(HAVE_LIBOPENSLES)
+            SET(HAVE_OPENSL 1)
+            SET(ALC_OBJS  ${ALC_OBJS} Alc/backends/opensl.c)
+            SET(BACKENDS  "${BACKENDS} OpenSL,")
+            SET(EXTRA_LIBS OpenSLES ${EXTRA_LIBS})
+        ENDIF()
+    ENDIF()
+ENDIF()
+IF(REQUIRE_OPENSL AND NOT HAVE_OPENSL)
+    MESSAGE(FATAL_ERROR "Failed to enabled required OpenSL backend")
+ENDIF()
 
 # Optionally enable the Wave Writer backend
 IF(WAVE)
     SET(HAVE_WAVE 1)
-    SET(ALC_OBJS  ${ALC_OBJS} Alc/wave.c)
+    SET(ALC_OBJS  ${ALC_OBJS} Alc/backends/wave.c)
     SET(BACKENDS  "${BACKENDS} WaveFile,")
 ENDIF()
 
 # This is always available
 SET(BACKENDS  "${BACKENDS} Null")
+
+IF(EXAMPLES)
+    PKG_CHECK_MODULES(FFMPEG libavcodec libavformat)
+ENDIF()
+
+IF(LIBTYPE STREQUAL "STATIC")
+    ADD_DEFINITIONS(-DAL_LIBTYPE_STATIC)
+    SET(PKG_CONFIG_CFLAGS -DAL_LIBTYPE_STATIC ${PKG_CONFIG_CFLAGS})
+ENDIF()
 
 # Needed for openal.pc.in
 SET(prefix ${CMAKE_INSTALL_PREFIX})
@@ -452,15 +687,12 @@ CONFIGURE_FILE(
     @ONLY)
 
 # Build a library
-IF(NOT LIBTYPE)
-    SET(LIBTYPE SHARED)
-ENDIF()
 ADD_LIBRARY(${LIBNAME} ${LIBTYPE} ${OPENAL_OBJS} ${ALC_OBJS})
 SET_TARGET_PROPERTIES(${LIBNAME} PROPERTIES DEFINE_SYMBOL AL_BUILD_LIBRARY
                                             COMPILE_FLAGS -DAL_ALEXT_PROTOTYPES
-                                            VERSION ${LIB_VERSION}
+                                            VERSION ${LIB_VERSION}.0
                                             SOVERSION ${LIB_MAJOR_VERSION})
-IF(WIN32)
+IF(WIN32 AND NOT LIBTYPE STREQUAL "STATIC")
     SET_TARGET_PROPERTIES(${LIBNAME} PROPERTIES PREFIX "")
 ENDIF()
 
@@ -477,28 +709,12 @@ INSTALL(FILES include/AL/al.h
               include/AL/alext.h
               include/AL/efx.h
               include/AL/efx-creative.h
+              include/AL/efx-presets.h
         DESTINATION include/AL
 )
 INSTALL(FILES "${OpenAL_BINARY_DIR}/openal.pc"
         DESTINATION "lib${LIB_SUFFIX}/pkgconfig")
 
-# Install alsoft.conf configuration file
-IF(ALSOFT_CONFIG)
-    INSTALL(FILES alsoftrc.sample
-            DESTINATION /etc/openal
-            RENAME alsoft.conf
-    )
-ENDIF()
-
-IF(EXAMPLES)
-    ADD_EXECUTABLE(openal-info examples/openal-info.c)
-    TARGET_LINK_LIBRARIES(openal-info ${LIBNAME})
-    INSTALL(TARGETS openal-info
-            RUNTIME DESTINATION bin
-            LIBRARY DESTINATION "lib${LIB_SUFFIX}"
-            ARCHIVE DESTINATION "lib${LIB_SUFFIX}"
-    )
-ENDIF()
 
 MESSAGE(STATUS "")
 MESSAGE(STATUS "Building OpenAL with support for the following backends:")
@@ -509,6 +725,44 @@ IF(WIN32)
     IF(NOT HAVE_DSOUND)
         MESSAGE(STATUS "WARNING: Building the Windows version without DirectSound output")
         MESSAGE(STATUS "         This is probably NOT what you want!")
+        MESSAGE(STATUS "")
+    ENDIF()
+ENDIF()
+
+# Install alsoft.conf configuration file
+IF(ALSOFT_CONFIG)
+    INSTALL(FILES alsoftrc.sample
+            DESTINATION /etc/openal
+            RENAME alsoft.conf
+    )
+    MESSAGE(STATUS "Installing sample alsoft.conf")
+    MESSAGE(STATUS "")
+ENDIF()
+
+IF(UTILS)
+    ADD_EXECUTABLE(openal-info utils/openal-info.c)
+    TARGET_LINK_LIBRARIES(openal-info ${LIBNAME})
+    INSTALL(TARGETS openal-info
+            RUNTIME DESTINATION bin
+            LIBRARY DESTINATION "lib${LIB_SUFFIX}"
+            ARCHIVE DESTINATION "lib${LIB_SUFFIX}"
+    )
+    MESSAGE(STATUS "Building utility programs")
+    MESSAGE(STATUS "")
+ENDIF()
+
+IF(EXAMPLES)
+    IF(FFMPEG_FOUND)
+        ADD_EXECUTABLE(alstream examples/alhelpers.c examples/alffmpeg.c examples/alstream.c)
+        TARGET_LINK_LIBRARIES(alstream ${FFMPEG_LIBRARIES} ${LIBNAME})
+        SET_TARGET_PROPERTIES(alstream PROPERTIES COMPILE_FLAGS "${FFMPEG_CFLAGS}")
+        INSTALL(TARGETS alstream
+                RUNTIME DESTINATION bin
+                LIBRARY DESTINATION "lib${LIB_SUFFIX}"
+                ARCHIVE DESTINATION "lib${LIB_SUFFIX}"
+        )
+
+        MESSAGE(STATUS "Building ffmpeg example programs")
         MESSAGE(STATUS "")
     ENDIF()
 ENDIF()

@@ -33,7 +33,14 @@
 #  AL_FORMAT_51CHN32  (32-bit float 5.1 output)
 #  AL_FORMAT_61CHN32  (32-bit float 6.1 output)
 #  AL_FORMAT_71CHN32  (32-bit float 7.1 output)
-#format = AL_FORMAT_STEREO16
+#format = AL_FORMAT_STEREO32
+
+## hrtf:
+#  Enables HRTF filters. These filters provide for better sound spatialization
+#  while using headphones. The default filter will only work when output is
+#  44100hz stereo. While HRTF is active, the cf_level option is disabled.
+#  Default is disabled since stereo speaker output quality may suffer.
+#hrtf = false
 
 ## cf_level:
 #  Sets the crossfeed level for stereo output. Valid values are:
@@ -48,29 +55,21 @@
 #  stereo modes.
 #cf_level = 0
 
-## head_dampen:
-#  Sets the amount of dampening on sounds emanating from behind the listener.
-#  This is used to simulate the natural occlusion of the head, which is
-#  typically missing with mono and stereo output, and as such, only works on
-#  mono and stereo output modes. Valid values range from 0 to 1 (inclusive),
-#  and higher values provide a stronger effect.
-#head_dampen = 0.25
-
 ## frequency:
 #  Sets the output frequency.
 #frequency = 44100
 
 ## resampler:
 #  Selects the resampler used when mixing sources. Valid values are:
-#  0 - None (nearest sample, no interpolation)
-#  1 - Linear (extrapolates samples using a linear slope between samples)
-#  2 - Cosine (extrapolates using a (co)sine slope)
+#  point - nearest sample, no interpolation
+#  linear - extrapolates samples using a linear slope between samples
+#  cubic - extrapolates samples using a Catmull-Rom spline
 #  Specifying other values will result in using the default (linear).
-#resampler = 1
+#resampler = linear
 
 ## rt-prio:
 #  Sets real-time priority for the mixing thread. Not all drivers may use this
-#  (eg. PulseAudio) as they already control the priority of the mixing thread.
+#  (eg. PortAudio) as they already control the priority of the mixing thread.
 #  0 and negative values will disable it. Note that this may constitute a
 #  security risk since a real-time priority thread can indefinitely block
 #  normal-priority threads if it fails to wait. As such, the default is
@@ -94,21 +93,14 @@
 #sources = 256
 
 ## stereodup:
-#  Sets whether to duplicate stereo sounds on the rear and side speakers for 4+
-#  channel output. This can make stereo sources noticeably louder than mono or
-#  even 4+ channel sources, but provides a "fuller" playback quality. True,
-#  yes, on, and non-0 values will duplicate stereo sources. 0 and anything else
-#  will cause stereo sounds to only play out the front speakers.
-#stereodup = false
-
-## scalemix:
-#  Sets whether to scale the remixed output. When the final mix is written to
-#  the device, the multi-channel data is remixed so pure-virtual channels (eg.
-#  front-center on stereo output) are remixed and added to available channels
-#  (eg. front-left and front-right). Scaling helps ensure that no single source
-#  will put out more than 100% on a given physical channel. This can cause a
-#  noticeable reduction in overall volume, however, so it is off by default.
-#scalemix = false
+#  Sets whether to duplicate stereo sounds behind the listener. This provides a
+#  "fuller" playback quality for surround sound output modes, although each
+#  individual speaker will have a slight reduction in volume to compensate for
+#  the extra output speakers. True, yes, on, and non-0 values will duplicate
+#  stereo sources. 0 and anything else will cause stereo sounds to only play in
+#  front. This only has an effect when a suitable output format is used (ie.
+#  those that contain side and/or rear speakers).
+#stereodup = true
 
 ## drivers:
 #  Sets the backend driver list order, comma-seperated. Unknown backends and
@@ -117,12 +109,13 @@
 #  followed by all other available backends, while 'oss' will list OSS only).
 #  Backends prepended with - won't be available for use (eg. '-oss,' will allow
 #  all available backends except OSS). An empty list means the default.
-#drivers = pulse,alsa,oss,solaris,dsound,winmm,port,null,wave
+#drivers = pulse,alsa,core,oss,solaris,sndio,mmdevapi,dsound,winmm,port,opensl,null,wave
 
 ## excludefx:
 #  Sets which effects to exclude, preventing apps from using them. This can
 #  help for apps that try to use effects which are too CPU intensive for the
-#  system to handle. Available effects are: eaxreverb,reverb,echo,modulator
+#  system to handle. Available effects are: eaxreverb,reverb,echo,modulator,
+#  dedicated
 #excludefx =
 
 ## slots:
@@ -133,10 +126,10 @@
 #slots = 4
 
 ## sends:
-#  Sets the maximum number of auxiliary sends per source. The total number of
-#  sends possible is defined at compile time and thus can not be increased
-#  beyond the default (2).
-#sends = 2
+#  Sets the number of auxiliary sends per source. When not specified (default),
+#  it allows the app to request how many it wants. The maximum value currently
+#  possible is 4.
+#sends =
 
 ## layout:
 #  Sets the virtual speaker layout. Values are specified in degrees, where 0 is
@@ -147,6 +140,61 @@
 #  and back-center(bc).
 #layout =
 
+## layout_*:
+#  Channel-specific layouts may be specified to override the layout option. The
+#  same speakers as the layout option are available, and the default settings
+#  are shown below.
+#layout_STEREO = fl=-90, fr=90
+#layout_QUAD   = fl=-45, fr=45, bl=-135, br=135
+#layout_51CHN  = fl=-30, fr=30, fc=0, bl=-110, br=110
+#layout_61CHN  = fl=-30, fr=30, fc=0, sl=-90, sr=90, bc=180
+#layout_71CHN  = fl=-30, fr=30, fc=0, sl=-90, sr=90, bl=-150, br=150
+
+## default-reverb:
+#  A reverb preset that applies by default to all sources on send 0
+#  (applications that set their own slots on send 0 will override this).
+#  Available presets are: Generic, PaddedCell, Room, Bathroom, Livingroom,
+#  Stoneroom, Auditorium, ConcertHall, Cave, Arena, Hangar, CarpettedHallway,
+#  Hallway, StoneCorridor, Alley, Forest, City, Moutains, Quarry, Plain,
+#  ParkingLot, SewerPipe, Underwater, Drugged, Dizzy, Psychotic. Optionally,
+#  the __ALSOFT_DEFAULT_REVERB env var may be set before running the app
+#  instead.
+#default-reverb =
+
+## trap-alc-error:
+#  Generates a SIGTRAP signal when an ALC device error is generated, on systems
+#  that support it. This helps when debugging, while trying to find the cause
+#  of a device error. On Windows, a breakpoint exception is generated.
+#  Optionally, the __ALSOFT_TRAP_ALC_ERROR env var may be set before running
+#  the app instead.
+#trap-alc-error = false
+
+## trap-al-error:
+#  Generates a SIGTRAP signal when an AL context error is generated, on systems
+#  that support it. This helps when debugging, while trying to find the cause
+#  of a context error. On Windows, a breakpoint exception is generated.
+#  Optionally, the __ALSOFT_TRAP_AL_ERROR env var may be set before running the
+#  app instead.
+#trap-al-error = false
+
+##
+## Reverb effect stuff (includes EAX reverb)
+##
+[reverb]
+
+## boost:
+#  A global amplification for reverb output, expressed in decibels. The value
+#  is logarithmic, so +6 will be a scale of (approximately) 2x, +12 will be a
+#  scale of 4x, etc. Similarly, -6 will be about half, and -12 about 1/4th. A
+#  value of 0 means no change.
+#boost = 0
+
+## emulate-eax:
+#  Allows the standard reverb effect to be used in place of EAX reverb. EAX
+#  reverb processing is a bit more CPU intensive than standard, so this option
+#  allows a simpler effect to be used at the loss of some quality.
+#emulate-eax = false
+
 ##
 ## ALSA backend stuff
 ##
@@ -156,9 +204,21 @@
 #  Sets the device name for the default playback device.
 #device = default
 
+## device-prefix:
+#  Sets the prefix used by the discovered (non-default) playback devices. This
+#  will be appended with "CARD=c,DEV=d", where c is the card id and d is the
+#  device index for the requested device name.
+#device-prefix = plughw:
+
 ## capture:
 #  Sets the device name for the default capture device.
 #capture = default
+
+## capture-prefix:
+#  Sets the prefix used by the discovered (non-default) capture devices. This
+#  will be appended with "CARD=c,DEV=d", where c is the card id and d is the
+#  device number for the requested device name.
+#capture-prefix = plughw:
 
 ## mmap:
 #  Sets whether to try using mmap mode (helps reduce latencies and CPU
@@ -188,6 +248,11 @@
 ## device:
 #  Sets the device name for Solaris output.
 #device = /dev/audio
+
+##
+## MMDevApi backend stuff
+##
+[mmdevapi]
 
 ##
 ## DirectSound backend stuff
@@ -226,16 +291,6 @@
 #  actually selected. Setting autospawn to false in Pulse's client.conf will
 #  still prevent autospawning even if this is set to true.
 #spawn-server = false
-
-## buffer-length:
-#  Specifies the PulseAudio buffer length, in sample frames. When set to a
-#  non-0 value, it specifies the total buffer length for the playback stream,
-#  overriding the period settings. Otherwise it uses the period size and count
-#  to calculate a buffer size. PulseAudio, unlike other backends, does not work
-#  in period chunks, but instead just has one buffer block which is refilled as
-#  it nears empty. Because of this, the usual buffering metrics are unsuitable,
-#  with the default 4096 frames being needlessly large.
-#buffer-length = 2048
 
 ##
 ## Wave File Writer stuff

@@ -7,5 +7,4 @@ android/obj
 android/local.properties
 android/project.properties
 android/proguard.cfg
-
-
+android/build.xml
