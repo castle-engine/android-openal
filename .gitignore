@@ -3,4 +3,9 @@ android/bin
 android/gen
 android/libs
 android/res
+android/obj
 android/local.properties
+android/project.properties
+android/proguard.cfg
+
+

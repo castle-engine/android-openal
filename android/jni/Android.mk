@@ -33,7 +33,7 @@ LOCAL_SRC_FILES  := ../../OpenAL32/alAuxEffectSlot.c \
                     ../../Alc/bs2b.c                 \
                     ../../Alc/null.c                 \
 
-LOCAL_CFLAGS     := -DAL_BUILD_LIBRARY -DAL_ALEXT_PROTOTYPES
+LOCAL_CFLAGS     := -ffast-math -DAL_BUILD_LIBRARY -DAL_ALEXT_PROTOTYPES
 LOCAL_LDLIBS     := -llog -Wl,-s
 
 include $(BUILD_SHARED_LIBRARY)
@@ -67,7 +67,7 @@ LOCAL_SRC_FILES  := bitwise.c      \
                     vorbisfile.c   \
                     speed.s        \
 
-LOCAL_CFLAGS     := -D_ARM_ASSEM_
+LOCAL_CFLAGS     := -ffast-math -D_ARM_ASSEM_
 
 include $(BUILD_STATIC_LIBRARY)
 
@@ -88,4 +88,3 @@ LOCAL_SHARED_LIBRARIES := libopenal
 include $(BUILD_SHARED_LIBRARY)
 
 ########################################################################################################
-
