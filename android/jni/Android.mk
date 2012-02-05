@@ -72,7 +72,6 @@ LOCAL_SRC_FILES  := bitwise.c      \
                     res012.c       \
                     speed.s        \
                     vorbisfile.c   \
-                    speed.s        \
 
 LOCAL_CFLAGS     := -ffast-math -D_ARM_ASSEM_
 
