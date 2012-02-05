@@ -41,16 +41,17 @@ static jmethodID mStop;
 static jmethodID mRelease;
 static jmethodID mWrite;
 
-jint JNI_OnLoad(JavaVM* vm, void* reserved)
-{
-    javaVM = vm;
-    return JNI_VERSION_1_2;
-}
-
 static void onJavaDetach(void* arg)
 {
     (*javaVM)->DetachCurrentThread(javaVM);
-    pthread_setspecific(&javaDetach, NULL);
+    pthread_setspecific(javaDetach, NULL);
+}
+
+jint JNI_OnLoad(JavaVM* vm, void* reserved)
+{
+    javaVM = vm;
+    pthread_key_create(&javaDetach, onJavaDetach);
+    return JNI_VERSION_1_2;
 }
 
 static JNIEnv* GetEnv()
@@ -66,8 +67,7 @@ static JNIEnv* GetEnv()
             exit(1);
         }
 
-        pthread_key_create(&javaDetach, onJavaDetach);
-        pthread_setspecific(&javaDetach, env);
+        pthread_setspecific(javaDetach, env);
     }
     else if (err != JNI_OK)
     {
