@@ -1,4 +1,4 @@
-TARGET_PLATFORM := android-3
+TARGET_PLATFORM := android-16
 
 ROOT_PATH := $(call my-dir)
 
@@ -45,52 +45,67 @@ LOCAL_LDLIBS     := -llog -Wl,-s
 
 include $(BUILD_SHARED_LIBRARY)
 
-########################################################################################################
+# Michalis commented out Tremolo,
+# doesn't compile anymore (with NDK platform 16),
+# assembler fails.
+# Doesn't matter in our case -- we have tremolo from
+# https://github.com/michaliskambi/tremolo-android
 
-include $(CLEAR_VARS)
+# ########################################################################################################
 
-LOCAL_MODULE     := tremolo
-LOCAL_ARM_MODE   := arm
-LOCAL_PATH       := $(ROOT_PATH)/tremolo
-LOCAL_SRC_FILES  := bitwise.c      \
-                    bitwiseARM.s   \
-                    codebook.c     \
-                    dpen.s         \
-                    dsp.c          \
-                    floor0.c       \
-                    floor1.c       \
-                    floor1ARM.s    \
-                    floor1LARM.s   \
-                    floor_lookup.c \
-                    framing.c      \
-                    info.c         \
-                    mapping0.c     \
-                    mdct.c         \
-                    mdctARM.s      \
-                    mdctLARM.s     \
-                    misc.c         \
-                    res012.c       \
-                    speed.s        \
-                    vorbisfile.c   \
+# include $(CLEAR_VARS)
 
-LOCAL_CFLAGS     := -ffast-math -D_ARM_ASSEM_
+# LOCAL_MODULE     := tremolo
+# LOCAL_ARM_MODE   := arm
+# LOCAL_PATH       := $(ROOT_PATH)/tremolo
+# LOCAL_SRC_FILES  := bitwise.c      \
+#                     bitwiseARM.s   \
+#                     codebook.c     \
+#                     dpen.s         \
+#                     dsp.c          \
+#                     floor0.c       \
+#                     floor1.c       \
+#                     floor1ARM.s    \
+#                     floor1LARM.s   \
+#                     floor_lookup.c \
+#                     framing.c      \
+#                     info.c         \
+#                     mapping0.c     \
+#                     mdct.c         \
+#                     mdctARM.s      \
+#                     mdctLARM.s     \
+#                     misc.c         \
+#                     res012.c       \
+#                     speed.s        \
+#                     vorbisfile.c   \
 
-include $(BUILD_STATIC_LIBRARY)
+# LOCAL_CFLAGS     := -ffast-math -D_ARM_ASSEM_
 
-########################################################################################################
+# include $(BUILD_STATIC_LIBRARY)
 
-include $(CLEAR_VARS)
+# ########################################################################################################
 
-LOCAL_MODULE     := example
-LOCAL_ARM_MODE   := arm
-LOCAL_PATH       := $(ROOT_PATH)
-LOCAL_C_INCLUDES := $(LOCAL_PATH)/../../include $(LOCAL_PATH)/tremolo
-LOCAL_SRC_FILES  := example.c
-LOCAL_LDLIBS     := -llog -Wl,-s
+# include $(CLEAR_VARS)
 
-LOCAL_STATIC_LIBRARIES := libtremolo
-LOCAL_SHARED_LIBRARIES := libopenal
+# LOCAL_MODULE     := example
+# LOCAL_ARM_MODE   := arm
+# LOCAL_PATH       := $(ROOT_PATH)
+# LOCAL_C_INCLUDES := $(LOCAL_PATH)/../../include $(LOCAL_PATH)/tremolo
+# LOCAL_SRC_FILES  := example.c
+# LOCAL_LDLIBS     := -llog -Wl,-s
 
-include $(BUILD_SHARED_LIBRARY)
+# LOCAL_STATIC_LIBRARIES := libtremolo
+# LOCAL_SHARED_LIBRARIES := libopenal
 
-########################################################################################################
+# # Michalis+, following
+# # http://stackoverflow.com/questions/19986523/shared-library-text-segment-is-not-shareable
+# # to avoid errors;
+# # [armeabi-v7a] SharedLibrary  : libexample.so
+# # /home/michalis/installed/android/ndk/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/../lib/gcc/arm-linux-androideabi/4.9.x/../../../../arm-linux-androideabi/bin/ld: warning: shared library text segment is not shareable
+# # /home/michalis/installed/android/ndk/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/../lib/gcc/arm-linux-androideabi/4.9.x/../../../../arm-linux-androideabi/bin/ld: error: treating warnings as errors
+# # collect2: error: ld returned 1 exit status
+# LOCAL_LDLIBS += -Wl,--no-warn-shared-textrel
+
+# include $(BUILD_SHARED_LIBRARY)
+
+# ########################################################################################################
