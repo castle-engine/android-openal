@@ -1,3 +1,4 @@
+# Same as Castle Game Engine minimal platform version
 TARGET_PLATFORM := android-16
 
 ROOT_PATH := $(call my-dir)
