@@ -10,7 +10,7 @@ It assumes:
 
 Then just run `make build` .
 
-It will be recompile the library for
+It will recompile the library for
 the appropriate Android versions and architectures
 -- the ones used by _Castle Game Engine_.
 
