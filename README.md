@@ -11,8 +11,12 @@ It assumes:
 Then just run `make build` .
 
 It will recompile the library for
-the appropriate Android versions and architectures
--- the ones used by _Castle Game Engine_.
+the appropriate Android versions and architectures used by _Castle Game Engine_:
+
+- 32-bit ARM
+- 64-bit ARM (aka Aarch64)
+- 32-bit X86
+- 64-bit X86 (x86_64)
 
 # Credits
 
