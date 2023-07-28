@@ -1,3 +1,7 @@
+# This repository is no longer useful for Castle Game Engine, it is archived
+
+We no longer build OpenAL libraries for OpenAL this way. Instead, CGE includes C++ source code of OpenAL, and we let Gradle compile them, as part of building Android package.
+
 # Easily compile OpenAL for Android for Castle Game Engine
 
 This repository allows to easily recompile OpenAL (sound playing library)
